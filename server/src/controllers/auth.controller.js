@@ -93,11 +93,46 @@ export const onboard = async ( req, res ) => {
         const { fullName, bio, nativeLanguage, learningLanguage, location } = req.body;
 
         if(!fullName || !bio || !nativeLanguage || !learningLanguage || !location){
-            return res.status(400).json({ message: "All fields are required" });
+            return res.status(400).json({ 
+                message: "All fields are required",
+                missingFields: [
+                    !fullName && "fullName",
+                    !bio && "bio",
+                    !nativeLanguage && "nativeLanguage",
+                    !learningLanguage && "learningLanguage",
+                    !location && "location",
+                ].filter(Boolean),
+            });
         }
 
+        const updatedUser = await User.findByIdAndUpdate(userId, {
+            ...req.body,
+            isOnboarding: true,
+        }, { new: true });
+
+        if(!updatedUser){
+            return res.status(400).json({ message: "User not found" });
+        }
+
+        try {
+            await upsertStreamUser({
+                id : updatedUser._id.toString(),
+                name : updatedUser.fullName,
+                image : updatedUser.profilePic || "",
+            })
+            console.log("Stream user updated successfully" + updatedUser.fullName);
+        } catch (error) {
+            console.error("Error updating stream user:", error);
+        }
+
+        res.status(200).json({ success: true, user: updatedUser });
         
     } catch (error) {
-        
+        console.error("Error during onboarding:", error);
+        return res.status(500).json({ message: "Internal server error" });
     }
 }
+
+export const me = async ( req, res ) => {
+    res.status(200).json({ success: true, user: req.user });
+}   
